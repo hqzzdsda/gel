@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转生模拟器 - 奈何桥篇</title>
+    <style>
+        /* --- 全局样式 --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* --- 背景层 --- */
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease, transform 4s ease-in-out; /* 支持淡入和缩放 */
+            opacity: 0;
+        }
+
+        /* --- 角色层 --- */
+        #character {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 80%; /* 立绘高度 */
+            width: auto;
+            z-index: 2;
+            transition: opacity 1.5s ease;
+            opacity: 0;
+        }
+        
+        /* --- 遮罩层 (用于黑屏/特效) --- */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+
+        /* --- 对话框区域 --- */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            height: 250px;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,0.95) 100%);
+            z-index: 10;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* 名字标签 */
+        #name-tag {
+            font-size: 24px;
+            font-weight: bold;
+            color: #aaa;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+        /* 文本内容 */
+        #text-content {
+            font-size: 20px;
+            line-height: 1.6;
+            letter-spacing: 1px;
+            min-height: 80px;
+        }
+
+        /* 闪烁的光标 */
+        .cursor::after {
+            content: '▼';
+            animation: blink 1s infinite;
+            margin-left: 5px;
+            color: #888;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* --- 系统提示特殊样式 --- */
+        .system-message-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            background: rgba(0, 20, 40, 0.9);
+            border: 2px solid #00d2ff;
+            box-shadow: 0 0 15px #00d2ff;
+            color: #00d2ff;
+            padding: 20px;
+            text-align: center;
+            z-index: 20;
+            font-family: "Courier New", monospace;
+            display: none; /* 默认隐藏 */
+        }
+        .system-text {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* --- 选项层 --- */
+        #choices-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 30;
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .choice-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 15px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 60%;
+            max-width: 400px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .choice-btn:hover {
+            background: #fff;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        /* 隐藏结局按钮样式 */
+        .hidden-ending-btn {
+            border: 1px solid #ff0000;
+            color: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+        .hidden-ending-btn:hover {
+            background: #ff0000;
+            color: #000;
+        }
+
+        /* 点击继续的遮罩 */
+        #click-catcher {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="background" style="background-image: url('file:./images/bgnaihe.png');"></div>
+
+    <img id="character" src="./images/charmengpo.png" alt="Character">
+
+    <div id="overlay"></div>
+
+    <div id="system-box" class="system-message-container">
+        <div id="system-content" class="system-text"></div>
+    </div>
+
+    <div id="choices-container"></div>
+
+    <div id="dialogue-box">
+        <div id="name-tag"></div>
+        <div id="text-content"></div>
+    </div>
+
+    <div id="click-catcher" onclick="nextStep()"></div>
+</div>
+
+<script>
+    /**
+     * 游戏配置与状态
+     */
+    let currentStepIndex = 0;
+    let isTyping = false;
+    let typingSpeed = 50; // 打字速度 (ms)
+    
+    // 模拟的本地存储键名
+    const SAVE_KEY = "reborn_game_cleared_worlds";
+
+    /**
+     * 剧本数据 (Story Script)
+     * type: 'dialogue' | 'system' | 'narrative' | 'choice'
+     * text: 显示的文本
+     * name: 说话人名字 (仅 dialogue 有效)
+     * bgAction: 'fadeIn' | 'zoom' | null (背景特效)
+     * charAction: 'show' | 'hide' | null (角色特效)
+     */
+    const storyScript = [
+        // ▶ Scene 0｜黑屏 · 初始化
+        { type: 'narrative', text: "……", bgAction: 'black' },
+        { type: 'narrative', text: "……" },
+        { type: 'system', text: "正在初始化转生流程。" }, // 停顿效果靠玩家点击模拟
+
+        // ▶ Scene 1｜奈何桥 · 远景出现
+        { 
+            type: 'narrative', 
+            text: "你听见水声。\n不是流动的水。",
+            bgAction: 'fadeIn' // 背景淡入
+        },
+        { type: 'narrative', text: "更像是——\n有人在远处反复搅动一只空碗。" },
+        { type: 'narrative', text: "画面亮起。\n你站在一座桥上。" },
+        { type: 'narrative', text: "桥很窄。\n窄到你不确定自己是不是一直站在原地。" },
+        { type: 'narrative', text: "桥下是雾。\n不是白色的。\n是那种看久了会有点晕的灰。" },
+        { type: 'system', text: "状态确认中……" },
+
+        // ▶ Scene 2｜桥上 · 自我感知
+        { 
+            type: 'narrative', 
+            text: "你低头看自己的手。\n它们在。\n但没有重量感。",
+            bgAction: 'zoom' // 镜头拉近
+        },
+        { type: 'narrative', text: "你动了一下。\n身体延迟了半拍。" },
+        { type: 'system', text: "检测到意识完整。\n检测到记忆残留。" },
+        { type: 'narrative', text: "你忽然想起一件事。\n车灯。\n刺眼的白光。" },
+        { type: 'narrative', text: "还有——\n你不太确定。" },
+        { type: 'system', text: "请放心。你已经完成死亡流程。" },
+        { type: 'narrative', text: "这句话让你松了一口气。\n你不知道为什么会松一口气。\n但你确实松了。" },
+
+        // ▶ Scene 3｜孟婆出现
+        { 
+            type: 'narrative', 
+            text: "桥的尽头，有个人。\n她坐在一张矮桌后面。",
+            charAction: 'show' // 角色出现
+        },
+        { type: 'narrative', text: "桌上放着一只碗。\n碗是空的。" },
+        { type: 'narrative', text: "她没有看你。\n她只是用勺子，\n一下，一下，\n搅着那只什么都没有的碗。" },
+        { type: 'system', text: "引导员已就位。" },
+        { type: 'narrative', text: "你想开口。\n却不知道该说什么。\n于是你听见她说话了。" },
+        
+        { type: 'dialogue', name: '？？？', text: "喝过了，对吧。" },
+        { type: 'narrative', text: "你愣了一下。\n你不记得喝过。\n但你知道这时候应该点头。\n你点头。" },
+        { type: 'dialogue', name: '？？？', text: "嗯。" },
+        { type: 'narrative', text: "她终于抬头看了你一眼。\n不是审视。\n更像是确认。" },
+        { type: 'dialogue', name: '？？？', text: "那就好。\n省事。" },
+        { type: 'narrative', text: "她把碗往旁边一推。\n桌面发出一声轻响。" },
+        { type: 'system', text: "孟婆汤：已饮用（主观确认）" },
+        { type: 'narrative', text: "你看见那行字的时候，\n忽然有点安心。\n好像只要这行字存在，\n很多事就不用再想了。" },
+
+        // ▶ Scene 4｜入口生成
+        { type: 'system', text: "即将进入转生选择阶段。" },
+        { type: 'narrative', text: "桥的另一侧开始变化。\n不是崩塌。\n而是——\n像网页刷新一样。" },
+        { type: 'narrative', text: "一个又一个入口浮现出来。\n它们看起来不像门。\n更像是「已经准备好的答案」。" },
+        { type: 'system', text: "请选择你要进入的世界。" },
+        { type: 'narrative', text: "你站在原地。\n你忽然意识到一件事。\n你没有被问过——\n你想不想转生。" },
+        { type: 'narrative', text: "但这并不重要。\n你已经死了。\n你已经喝过汤了。\n你现在只需要选一个。" },
+        { type: 'narrative', text: "在你做出选择之前——\n你听见身后传来一声很轻的声音。" },
+        { type: 'dialogue', name: '？？？', text: "……如果你记得的话。" },
+        { type: 'narrative', text: "你回头。\n桥还是那座桥。\n她还是坐在那里。\n但她没有看你。" },
+        { type: 'dialogue', name: '？？？', text: "不过，大多数人都不记得。" },
+        { type: 'system', text: "请尽快选择。" },
+        
+        // 触发选项
+        { type: 'choice' }
+    ];
+
+    /**
+     * DOM 元素获取
+     */
+    const bgEl = document.getElementById('background');
+    const charEl = document.getElementById('character');
+    const overlayEl = document.getElementById('overlay');
+    const nameTagEl = document.getElementById('name-tag');
+    const textContentEl = document.getElementById('text-content');
+    const dialogueBoxEl = document.getElementById('dialogue-box');
+    const systemBoxEl = document.getElementById('system-box');
+    const systemContentEl = document.getElementById('system-content');
+    const choicesContainerEl = document.getElementById('choices-container');
+
+    /**
+     * 核心逻辑函数
+     */
+
+    // 推进剧情
+    function nextStep() {
+        if (isTyping) {
+            // 如果正在打字，点击则瞬间显示全文字
+            finishTyping();
+            return;
+        }
+
+        if (currentStepIndex >= storyScript.length) {
+            console.log("Script End");
+            return;
+        }
+
+        const step = storyScript[currentStepIndex];
+        
+        // 处理演出效果 (FX)
+        handleEffects(step);
+
+        // 处理不同类型的文本展示
+        if (step.type === 'choice') {
+            showChoices();
+        } else if (step.type === 'system') {
+            showSystemMessage(step.text);
+        } else {
+            showDialogue(step);
+        }
+
+        currentStepIndex++;
+    }
+
+    // 处理特效
+    function handleEffects(step) {
+        // 背景特效
+        if (step.bgAction === 'black') {
+            overlayEl.style.opacity = 1; // 全黑
+            bgEl.style.opacity = 0;
+        } else if (step.bgAction === 'fadeIn') {
+            overlayEl.style.opacity = 0; // 移除黑色遮罩
+            bgEl.style.opacity = 1;      // 显示背景
+        } else if (step.bgAction === 'zoom') {
+            bgEl.style.transform = "scale(1.05)"; // 缓慢拉近
+        }
+
+        // 角色特效
+        if (step.charAction === 'show') {
+            charEl.style.opacity = 1;
+        } else if (step.charAction === 'hide') {
+            charEl.style.opacity = 0;
+        }
+    }
+
+    // 显示普通对话/旁白
+    function showDialogue(step) {
+        // 隐藏系统框，显示对话框
+        systemBoxEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        
+        // 清空内容
+        textContentEl.innerHTML = '';
+        
+        // 设置名字
+        if (step.type === 'dialogue') {
+            nameTagEl.innerText = step.name;
+            nameTagEl.style.display = 'block';
+        } else {
+            nameTagEl.style.display = 'none'; // 旁白不显示名字
+        }
+
+        // 开始打字机效果
+        typeWriter(step.text.replace(/\n/g, '<br>'), textContentEl);
+    }
+
+    // 显示系统提示
+    function showSystemMessage(text) {
+        dialogueBoxEl.style.opacity = 0; // 隐藏下方对话框
+        systemBoxEl.style.display = 'block'; // 显示中央系统框
+        systemContentEl.innerHTML = '';
+        
+        typeWriter(text, systemContentEl);
+    }
+
+    // 打字机效果实现
+    let typeInterval;
+    let fullTextHTML = "";
+    
+    function typeWriter(htmlText, targetElement) {
+        isTyping = true;
+        fullTextHTML = htmlText; // 保存完整文本用于快速结束
+        targetElement.innerHTML = ''; // 清空
+        targetElement.classList.add('cursor');
+
+        // 为了简化，这里由于包含 <br>，我们将按纯字符处理，如果是标签则快速跳过
+        // 简单实现：暂时去掉 HTML 标签进行逐字，实际项目可用更复杂正则
+        // 这里使用一种简单粗暴的模拟：逐字追加，如果遇到 < 则找到 >
+        
+        let i = 0;
+        clearInterval(typeInterval);
+        
+        typeInterval = setInterval(() => {
+            if (i >= htmlText.length) {
+                finishTyping();
+                return;
+            }
+
+            const char = htmlText[i];
+            
+            // 如果遇到标签开始 <br>
+            if (char === '<') {
+                const closeIndex = htmlText.indexOf('>', i);
+                if (closeIndex !== -1) {
+                    targetElement.innerHTML += htmlText.substring(i, closeIndex + 1);
+                    i = closeIndex + 1;
+                } else {
+                    targetElement.innerHTML += char;
+                    i++;
+                }
+            } else {
+                targetElement.innerHTML += char;
+                i++;
+            }
+            
+        }, typingSpeed);
+    }
+
+    function finishTyping() {
+        clearInterval(typeInterval);
+        isTyping = false;
+        
+        // 确保显示完整文本
+        if(systemBoxEl.style.display === 'block') {
+            systemContentEl.innerHTML = fullTextHTML;
+            systemContentEl.classList.remove('cursor');
+        } else {
+            textContentEl.innerHTML = fullTextHTML;
+            textContentEl.classList.remove('cursor');
+        }
+    }
+
+    // --- 选项与隐藏结局逻辑 ---
+    function showChoices() {
+        choicesContainerEl.style.display = 'flex';
+        choicesContainerEl.innerHTML = ''; // 清空旧选项
+
+        // 获取已解锁的世界 (从 localStorage)
+        // 格式示例: ["world1", "world3"]
+        let clearedWorlds = JSON.parse(localStorage.getItem(SAVE_KEY)) || [];
+        
+        // 定义6个普通世界
+        const worlds = [
+            { id: "world1", name: "【支线一】三国：飞将的抉择" },
+            { id: "world2", name: "【支线二】剑与魔法：废柴少爷的逆袭" },
+            { id: "world3", name: "【支线三】规则怪谈：逃离这所学校" },
+            { id: "world4", name: "【支线四】末日废土：最后一辆校车" },
+            { id: "world5", name: "【支线五】宫廷权谋：皇子伴读的日常" },
+            { id: "world6", name: "【支线六】蒸汽朋克：齿轮驱动的心脏" }
+        ];
+
+        // 渲染6个普通选项
+        worlds.forEach(world => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            
+            // 标记已通关的世界
+            if (clearedWorlds.includes(world.id)) {
+                btn.innerText = world.name + " (已攻略)";
+                btn.style.opacity = "0.6";
+            } else {
+                btn.innerText = world.name;
+            }
+
+            btn.onclick = (e) => {
+                e.stopPropagation(); // 防止触发 nextStep
+                enterWorld(world.id);
+            };
+            choicesContainerEl.appendChild(btn);
+        });
+
+        // --- 核心逻辑：检测隐藏结局 ---
+        // 假设这里需要6个全通才能解锁 (为了测试方便，你可以把 6 改成 0 直接看效果)
+        if (clearedWorlds.length >= 6) {
+            const hiddenBtn = document.createElement('div');
+            hiddenBtn.className = 'choice-btn hidden-ending-btn';
+            hiddenBtn.innerText = "【隐藏支线】？？？：你从未离开过";
+            hiddenBtn.onclick = (e) => {
+                e.stopPropagation();
+                enterWorld('hidden_ending');
+            };
+            choicesContainerEl.appendChild(hiddenBtn);
+        }
+    }
+
+    function enterWorld(worldId) {
+        // 打印一下，方便调试
+        console.log("正在尝试进入世界:", worldId);
+
+        // 判断点击的是哪个世界
+        if (worldId === 'world1') {
+            // --- 核心代码：跳转命令 ---
+            // 因为在同一个文件夹，直接写文件名即可
+            window.location.href = 'world1.html'; 
+        } 
+        else if (worldId === 'world2') {
+            alert("开发中：魔法世界即将上线...");
+            // 将来做好了 world2.html，就在这里写 window.location.href = 'world2.html';
+        }
+        else if (worldId === 'hidden_ending') {
+            alert("你触发了隐藏结局！(这里可以跳转到 hidden.html)");
+        }
+        else {
+            alert(`系统提示：[${worldId}] 正在构建数据中...`);
+        }
+    }
+
+    // 初始化启动
+    // nextStep(); 
+    // 页面加载完成后等待用户第一次点击开始
+   // --- 把 index.html 最底部的启动代码替换成下面这段 ---
+
+    // 1. 检查网址里有没有 "skipIntro=true"
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldSkip = urlParams.get('skipIntro') === 'true';
+
+    if (shouldSkip) {
+        // === 快速跳转模式 ===
+        console.log("检测到返回信号，跳过开场...");
+
+        // 1. 瞬间显示背景和人物 (不再慢慢淡入)
+        bgEl.style.opacity = 1; 
+        charEl.style.opacity = 1; 
+        
+        // 2. 将剧情进度指针直接拨到最后一步 (也就是 choice 所在的那一步)
+        // 注意：这里假设 storyScript 的最后一个元素是 { type: 'choice' }
+        currentStepIndex = storyScript.length - 1; 
+
+        // 3. 设置一句欢迎回来的台词
+        nameTagEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        textContentEl.innerHTML = "你重新回到了奈何桥。<br>孟婆没有说话，只是看着剩下的入口。";
+        
+        // 4. 直接把选项弹出来
+        showChoices();
+
+    } else {
+        // === 正常开始模式 ===
+        textContentEl.innerHTML = "（点击任意处开始转生）";
+        textContentEl.classList.add('cursor');
+    }
+
+</script>
+</body>
+</html>

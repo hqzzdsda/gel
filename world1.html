@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支线一：三国 · 吕布</title>
+    <style>
+        /* --- 沿用主框架样式，保持风格统一 --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            overflow: hidden;
+            color: #fff;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease, transform 4s ease-in-out;
+            opacity: 0;
+        }
+
+        /* 角色立绘 */
+        #character {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 85%;
+            width: auto;
+            z-index: 2;
+            transition: opacity 1s ease;
+            opacity: 0;
+            filter: brightness(0.8); /* 稍微暗一点融入环境 */
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 1.5s;
+        }
+
+        /* 对话框 */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            height: 260px;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(20,10,10,0.9) 20%, rgba(30,10,10,1) 100%); /* 偏红的暗色调 */
+            z-index: 10;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            border-top: 2px solid #5a1a1a; /* 三国风格红线 */
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #name-tag {
+            font-size: 26px;
+            font-weight: bold;
+            color: #d63031; /* 名字用红色 */
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        #text-content {
+            font-size: 20px;
+            line-height: 1.6;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* 系统提示框 */
+        .system-message-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            background: rgba(40, 0, 0, 0.9);
+            border: 2px solid #d63031;
+            box-shadow: 0 0 20px #d63031;
+            color: #ff7675;
+            padding: 25px;
+            text-align: center;
+            z-index: 20;
+            font-family: "Courier New", monospace;
+            display: none;
+        }
+
+        /* 选项样式 */
+        #choices-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .choice-btn {
+            background: linear-gradient(90deg, #2d3436, #000);
+            border: 1px solid #7f8c8d;
+            color: #ecf0f1;
+            padding: 20px 50px;
+            font-size: 20px;
+            cursor: pointer;
+            width: 70%;
+            max-width: 500px;
+            transition: all 0.3s;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice-btn:hover {
+            border-color: #d63031;
+            color: #d63031;
+            box-shadow: 0 0 15px rgba(214, 48, 49, 0.3);
+        }
+
+        #click-catcher {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            cursor: pointer;
+        }
+        
+        /* 结局后的返回按钮 */
+        .return-btn {
+            margin-top: 30px;
+            background: #d63031;
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="background"></div>
+
+    <img id="character" src="" alt="Character">
+
+    <div id="overlay"></div>
+
+    <div id="system-box" class="system-message-container">
+        <div id="system-content" class="system-text"></div>
+    </div>
+
+    <div id="choices-container"></div>
+
+    <div id="dialogue-box">
+        <div id="name-tag"></div>
+        <div id="text-content"></div>
+    </div>
+
+    <div id="click-catcher" onclick="nextStep()"></div>
+</div>
+
+<script>
+    /**
+     * 游戏状态管理
+     */
+    let currentStepIndex = 0;
+    let isTyping = false;
+    let typeInterval;
+    
+    // 核心数值
+    let scores = {
+        acknowledge: 0, // 承认/觉醒
+        deny: 0         // 否认/合理化
+    };
+
+    // 资源路径 (请替换为你本地的实际路径)
+   const ASSETS = {
+        bg_tent: './images/bgtent.png',       // 军帐
+        bg_yard: './images/bgyard.png',       // 庭院
+        bg_night: './images/bgnight.png',     // 夜色
+        bg_fire: './images/bgfire.png',       // 结局火光
+        char_dong: './images/chardongzhuo.png', // 董卓
+        char_diao: './images/chardiaochan.png'  // 貂蝉
+    };
+
+    /**
+     * 剧本数据
+     * 特殊字段说明:
+     * - choices: 定义选项数组
+     * - effect: 选项带来的数值变化 { ack: 1 } 或 { deny: 1 }
+     * - logicCheck: true 表示此处进行结局判定
+     */
+    const storyScript = [
+        // ▶ Scene 0｜转生加载
+        { type: 'system', text: "转生路径确认中……" },
+        { type: 'system', text: "当前身份：已分配。" },
+        { type: 'system', text: "记忆限制：启用。" },
+        { type: 'system', text: "转生完成。", bgAction: 'fadeIn', bgSrc: ASSETS.bg_tent },
+
+        // ▶ Scene 1｜军帐 · 初醒
+        { type: 'narrative', text: "你睁开眼。\n火光在帐外晃动。" },
+        { type: 'narrative', text: "铠甲压在你身上。\n很重。" },
+        { type: 'narrative', text: "你低头，看见一柄戟。\n你知道它的名字。" },
+        { type: 'narrative', text: "你知道这是谁的手。" },
+        { type: 'narrative', text: "你是——\n<span style='color:#d63031;font-size:1.2em'>吕布。</span>" },
+        { type: 'system', text: "当前状态：稳定。" },
+
+        // 🔹 选择点 ①
+        { 
+            type: 'choice', 
+            question: "【意识觉醒】你如何面对这件事？",
+            choices: [
+                { text: "A. 接受这很荒唐", effect: { ack: 1 } },
+                { text: "B. 强行合理化（照历史来）", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ Scene 2｜帐中 · 董卓
+        { type: 'dialogue', name: '董卓', text: "奉先，站那么远做什么。", charAction: 'show', charSrc: ASSETS.char_dong },
+        { type: 'narrative', text: "你本能地向前一步。" },
+        { type: 'narrative', text: "你忽然意识到一件事——\n你对这个人，<span style='color:#d63031'>太在意了</span>。" },
+        { type: 'system', text: "行为记录中……" },
+
+        // 🔹 选择点 ②
+        { 
+            type: 'choice',
+            question: "【面对董卓】你的下意识反应是？",
+            choices: [
+                { text: "A. 回避视线", effect: { deny: 1 } },
+                { text: "B. 抬头试探", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "路径已锁定。" },
+
+        // ▶ Scene 3｜庭院 · 貂蝉
+        { type: 'narrative', text: "场景切换...", bgAction: 'change', bgSrc: ASSETS.bg_yard },
+        { type: 'narrative', text: "她站在董卓身侧。\n离得很近。", charAction: 'change', charSrc: ASSETS.char_diao }, // 切换显示貂蝉
+        { type: 'narrative', text: "你不该注意。\n却注意到了。" },
+        { type: 'dialogue', name: '貂蝉', text: "将军为何如此看我？" },
+        { type: 'narrative', text: "你移开视线。\n不是因为她。\n是因为——\n她站的位置。" },
+
+        // 🔹 选择点 ③
+        { 
+            type: 'choice',
+            question: "【情绪监测】你感到嫉妒，这嫉妒源于？",
+            choices: [
+                { text: "A. 怒火转移（怪她红颜祸水）", effect: { deny: 1 } },
+                { text: "B. 否认情绪（我没有嫉妒）", effect: { deny: 1 } },
+                { text: "C. 承认嫉妒（我想要那个位置）", effect: { ack: 2 } }
+            ]
+        },
+        { type: 'system', text: "记录已更新。" },
+
+        // ▶ Scene 4｜夜 · 独处
+        { type: 'narrative', text: "夜色降临。", bgAction: 'change', bgSrc: ASSETS.bg_night, charAction: 'hide' }, // 隐藏角色
+        { type: 'narrative', text: "夜很深。\n你一个人。" },
+        { type: 'narrative', text: "历史在你脑子里一遍遍重演。" },
+
+        // 🔹 选择点 ④
+        { 
+            type: 'choice',
+            question: "【自我解释】你如何定义这种关系？",
+            choices: [
+                { text: "A. 这是义父子间的忠义", effect: { deny: 1 } },
+                { text: "B. 这是占有欲", effect: { ack: 1 } },
+                { text: "C. 我不想定义它（混乱）", effect: { ack: 1, deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ Scene 5｜凤仪亭 · 对峙
+        { type: 'narrative', text: "风吹过亭中。", bgAction: 'change', bgSrc: ASSETS.bg_yard },
+        { type: 'dialogue', name: '董卓', text: "若有一日，你会选谁？", charAction: 'show', charSrc: ASSETS.char_dong },
+        { type: 'narrative', text: "你没有立刻回答。" },
+
+        // 🔹 选择点 ⑤
+        { 
+            type: 'choice',
+            question: "【最终提问】你会如何回应？",
+            choices: [
+                { text: "A. 顾左右而言他", effect: { deny: 1 } },
+                { text: "B. 直接反问他", effect: { ack: 1 } },
+                { text: "C. 沉默", effect: { ack: 1 } }
+            ]
+        },
+
+        // ▶ Scene 6｜终局前奏
+        { type: 'narrative', text: "夜色府邸，火把通明。", bgAction: 'change', bgSrc: ASSETS.bg_fire },
+        { type: 'narrative', text: "历史告诉你：\n你该动手了。" },
+        { type: 'system', text: "当前路径倾向：已锁定。" },
+
+        // 🔹 结局判定点
+        { type: 'logic_check' }
+    ];
+
+    /**
+     * 引擎逻辑
+     */
+    const bgEl = document.getElementById('background');
+    const charEl = document.getElementById('character');
+    const overlayEl = document.getElementById('overlay');
+    const nameTagEl = document.getElementById('name-tag');
+    const textContentEl = document.getElementById('text-content');
+    const dialogueBoxEl = document.getElementById('dialogue-box');
+    const systemBoxEl = document.getElementById('system-box');
+    const systemContentEl = document.getElementById('system-content');
+    const choicesContainerEl = document.getElementById('choices-container');
+
+    function nextStep() {
+        if (isTyping) {
+            finishTyping();
+            return;
+        }
+
+        if (currentStepIndex >= storyScript.length) {
+            return;
+        }
+
+        const step = storyScript[currentStepIndex];
+
+        // 结局判定特殊处理
+        if (step.type === 'logic_check') {
+            resolveEnding();
+            return;
+        }
+
+        handleEffects(step);
+
+        if (step.type === 'choice') {
+            showChoices(step);
+        } else if (step.type === 'system') {
+            showSystemMessage(step.text);
+            currentStepIndex++;
+        } else {
+            showDialogue(step);
+            currentStepIndex++;
+        }
+    }
+
+    function handleEffects(step) {
+        // 背景处理
+        if (step.bgAction === 'fadeIn') {
+            overlayEl.style.opacity = 0;
+            bgEl.style.opacity = 1;
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        } else if (step.bgAction === 'change') {
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        }
+
+        // 角色处理
+        if (step.charAction === 'show') {
+            charEl.style.opacity = 1;
+            if(step.charSrc) charEl.src = step.charSrc;
+        } else if (step.charAction === 'hide') {
+            charEl.style.opacity = 0;
+        } else if (step.charAction === 'change') {
+             // 简单的切换效果
+             charEl.style.opacity = 0;
+             setTimeout(() => {
+                 if(step.charSrc) charEl.src = step.charSrc;
+                 charEl.style.opacity = 1;
+             }, 300);
+        }
+    }
+
+    function showDialogue(step) {
+        systemBoxEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        
+        if (step.name) {
+            nameTagEl.innerText = step.name;
+            nameTagEl.style.display = 'block';
+        } else {
+            nameTagEl.style.display = 'none';
+        }
+        typeWriter(step.text.replace(/\n/g, '<br>'), textContentEl);
+    }
+
+    function showSystemMessage(text) {
+        dialogueBoxEl.style.opacity = 0;
+        systemBoxEl.style.display = 'block';
+        typeWriter(text, systemContentEl);
+    }
+
+    function showChoices(step) {
+        choicesContainerEl.style.display = 'flex';
+        choicesContainerEl.innerHTML = '';
+        
+        // 标题
+        const title = document.createElement('h2');
+        title.innerText = step.question;
+        title.style.color = '#fff';
+        title.style.marginBottom = '20px';
+        choicesContainerEl.appendChild(title);
+
+        step.choices.forEach(choice => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                // 结算分数
+                if (choice.effect) {
+                    if (choice.effect.ack) scores.acknowledge += choice.effect.ack;
+                    if (choice.effect.deny) scores.deny += choice.effect.deny;
+                }
+                console.log("Current Scores:", scores);
+                
+                // 隐藏选项并继续
+                choicesContainerEl.style.display = 'none';
+                currentStepIndex++; // 跳过choice这一步
+                nextStep(); // 执行下一步
+            };
+            choicesContainerEl.appendChild(btn);
+        });
+    }
+
+    // 结局判定逻辑
+ 
+   // 结局判定逻辑
+    function resolveEnding() {
+        dialogueBoxEl.style.opacity = 1;
+        nameTagEl.style.display = 'none';
+        systemBoxEl.style.display = 'none';
+        
+        let endText = "";
+        let endTitle = "";
+
+        // 判定条件
+        if (scores.acknowledge > scores.deny) {
+            // Good End (相对)
+            endTitle = "【结局：背离历史的狂奔】";
+            endText = "你没有刺出那一戟。<br>你在那个夜晚拉住了董卓的马缰。<br>你看见他眼里的错愕。<br>“义父，走。”<br>你带着世界上最令人痛恨的暴君，逃离了注定的死亡。<br>历史在这里崩塌，但你终于感觉——<br>你是活着的。";
+        } else {
+            // Bad End (历史重演/因爱生恨)
+            endTitle = "【结局：名为忠义的牢笼】";
+            endText = "方天画戟还是刺了下去。<br>血溅在你脸上，烫得吓人。<br>他看着你，没有愤怒，只有一种让你心悸的解脱。<br>“奉先，做得好。”<br>你赢了名声，赢了美人，赢了天下。<br>但在这个瞬间，你通过他的死，<br>彻底杀死了你自己。";
+        }
+
+        textContentEl.innerHTML = `<h3 style='color:#d63031'>${endTitle}</h3><p>${endText}</p>`;
+        
+        // 标记通关并添加返回按钮
+        markWorldCleared("world1");
+        
+        // 延迟显示返回按钮
+        setTimeout(() => {
+            const returnBtn = document.createElement('button');
+            returnBtn.className = 'choice-btn return-btn';
+            returnBtn.innerText = "世界线收束 · 返回奈何桥";
+           returnBtn.onclick = () => {
+            // 给 index.html 发个暗号：skipIntro=true
+            window.location.href = 'index.html?skipIntro=true'; 
+        };
+            // 插入到文本框下方
+            textContentEl.appendChild(returnBtn);
+        }, 2000);
+    }
+
+
+    function markWorldCleared(worldId) {
+        const SAVE_KEY = "reborn_game_cleared_worlds";
+        let clearedWorlds = JSON.parse(localStorage.getItem(SAVE_KEY)) || [];
+        if (!clearedWorlds.includes(worldId)) {
+            clearedWorlds.push(worldId);
+            localStorage.setItem(SAVE_KEY, JSON.stringify(clearedWorlds));
+        }
+    }
+
+    function typeWriter(htmlText, targetElement) {
+        isTyping = true;
+        let fullText = htmlText;
+        targetElement.innerHTML = '';
+        
+        let i = 0;
+        clearInterval(typeInterval);
+        
+        typeInterval = setInterval(() => {
+            if (i >= fullText.length) {
+                finishTyping();
+                return;
+            }
+            if (fullText[i] === '<') {
+                const closeIndex = fullText.indexOf('>', i);
+                targetElement.innerHTML += fullText.substring(i, closeIndex + 1);
+                i = closeIndex + 1;
+            } else {
+                targetElement.innerHTML += fullText[i];
+                i++;
+            }
+        }, 40);
+    }
+
+    function finishTyping() {
+        clearInterval(typeInterval);
+        isTyping = false;
+        const step = storyScript[currentStepIndex - 1]; // 获取当前正在显示的步骤文本
+        // 简单处理：如果是结局状态，就不覆盖了，否则显示完整文本
+        // 这里简化，直接不清空，防bug
+    }
+
+    // 启动游戏
+    nextStep();
+
+</script>
+</body>
+</html>
