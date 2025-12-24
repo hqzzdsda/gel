@@ -262,9 +262,9 @@
     // --- 剧本 ---
     const storyScript = [
         // ▶ Intro
-        { type: 'narrative', text: "我是谁。\n我是 西科斯基 S-76B。" },
+        { type: 'narrative', text: "你是谁。\n你是 西科斯基 S-76B。" },
         { type: 'narrative', text: "被制造出来的。\n被检查过的。\n被相信“不会出问题”的那一种存在。" },
-        { type: 'narrative', text: "直到我遇见他。" },
+        { type: 'narrative', text: "直到你遇见他。" },
 
         // ▶ Scene 1｜凌晨四点
         { type: 'narrative', text: "洛杉矶在凌晨四点像一段被删掉的对白。", bgAction: 'fadeIn', bgSrc: ASSETS.bg_highway },
@@ -489,7 +489,13 @@
         });
     }
 
+   // 结局判定逻辑
     function resolveEnding() {
+        // 1. 设置结局文本
+        // === 关键修复：关掉挡路的点击层 ===
+        const catcher = document.getElementById('click-catcher');
+        if(catcher) catcher.style.display = 'none';
+
         dialogueBoxEl.style.opacity = 1;
         nameTagEl.style.display = 'none';
         systemBoxEl.style.display = 'none';
@@ -512,18 +518,36 @@
             endText = "你没有绕行。你把性能压到极限。<br>恨他把“被选择”的重量交给你。恨他让你无法只做一台机器。<br><br>但你也知道——如果现在放手，你会一辈子停在他没回头的那一刻。<br>于是你继续飞。不是坠落，是离开。<br><br>如果有人问起那天早上的航班，记录会显示：<br><span style='color:#e74c3c'>信号消失在雾中。</span><br>那不是事故，那是一次谁也不肯先松手的爱。";
         }
 
+        // 2. 显示结局文字
         textContentEl.innerHTML = `<h3 style='color:#f1c40f'>${endTitle}</h3><p>${endText}</p>`;
         
+        // 3. 标记通关
         markWorldCleared("world4");
 
+        // 4. 【核心修改】延迟3秒后，使用“选项容器”来显示返回按钮
         setTimeout(() => {
-            const returnBtn = document.createElement('button');
-            returnBtn.className = 'choice-btn return-btn';
-            returnBtn.innerText = "世界线收束 · 返回中转站";
-            returnBtn.onclick = () => {
+            // (A) 再次强制隐藏点击层，双重保险
+            if(catcher) catcher.style.display = 'none';
+
+            // (B) 呼叫最高层级的选项容器 (Z-Index 30)
+            choicesContainerEl.style.display = 'flex';
+            choicesContainerEl.innerHTML = ''; // 清空以前的选项
+
+            // (C) 创建返回按钮
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn'; // 复用你的选项样式
+            btn.innerText = "世界线收束 · 返回中转站";
+            
+            // (D) 绑定点击事件
+            btn.onclick = (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                console.log("正在跳转回主页...");
                 window.location.href = './index.html?skipIntro=true';
             };
-            textContentEl.appendChild(returnBtn);
+
+            // (E) 加入到高层容器中
+            choicesContainerEl.appendChild(btn);
+
         }, 3000);
     }
 
@@ -567,4 +591,3 @@
 </script>
 </body>
 </html>
-
