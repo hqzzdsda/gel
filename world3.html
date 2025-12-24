@@ -454,7 +454,9 @@
         });
     }
 
+   // 结局判定逻辑
     function resolveEnding() {
+        // 1. 设置结局文本
         dialogueBoxEl.style.opacity = 1;
         nameTagEl.style.display = 'none';
         systemBoxEl.style.display = 'none';
@@ -473,19 +475,38 @@
             endText = "我还是走了。<br>后来我在外地站稳了脚。<br>再回屯子，人不在了。<br>听说她生意做大了，也听说她再没给谁盛过多一筷子。<br><br>我站在院外，才明白：<br><span style='color:#ff5722'>有些女人，你一旦没跟住她的步子，<br>就永远追不上了。</span>";
         }
 
+        // 2. 显示结局文字
         textContentEl.innerHTML = `<h3 style='color:#ff5722'>${endTitle}</h3><p>${endText}</p>`;
         
+        // 3. 标记通关
         markWorldCleared("world3"); // 标记 World 3 通关
 
+        // 4. 【核心修改】延迟2秒后，使用“选项容器”来显示返回按钮
         setTimeout(() => {
-            const returnBtn = document.createElement('button');
-            returnBtn.className = 'choice-btn return-btn';
-            returnBtn.innerText = "世界线收束 · 返回中转站";
-            returnBtn.onclick = () => {
+            // (A) 再次强制隐藏点击层，双重保险
+            const catcher = document.getElementById('click-catcher');
+            if(catcher) catcher.style.display = 'none';
+
+            // (B) 呼叫最高层级的选项容器 (Z-Index 30)
+            choicesContainerEl.style.display = 'flex';
+            choicesContainerEl.innerHTML = ''; // 清空以前的选项
+
+            // (C) 创建返回按钮
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn'; // 复用你的选项样式
+            btn.innerText = "世界线收束 · 返回中转站";
+            
+            // (D) 绑定点击事件
+            btn.onclick = (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                console.log("正在跳转回主页...");
                 window.location.href = './index.html?skipIntro=true';
             };
-            textContentEl.appendChild(returnBtn);
-        }, 1500);
+
+            // (E) 加入到高层容器中
+            choicesContainerEl.appendChild(btn);
+
+        }, 2000);
     }
 
     function markWorldCleared(worldId) {
