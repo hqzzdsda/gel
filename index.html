@@ -81,7 +81,7 @@
             flex-direction: column;
             justify-content: flex-start;
             margin-bottom: 20px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: none;
         }
 
         /* 名字标签 */
@@ -194,7 +194,7 @@
 <body>
 
 <div id="game-container">
-    <div id="background" style="background-image: url('./images/bgnaihe.png');"></div>
+    <div id="background" style="background-image: url('file:./images/bgnaihe.png');"></div>
 
     <img id="character" src="./images/charmengpo.png" alt="Character">
 
@@ -467,12 +467,12 @@
         
         // 定义6个普通世界
         const worlds = [
-            { id: "world1", name: "【支线一】三国：飞将的抉择" },
-            { id: "world2", name: "【支线二】剑与魔法：废柴少爷的逆袭" },
-            { id: "world3", name: "【支线三】规则怪谈：逃离这所学校" },
-            { id: "world4", name: "【支线四】末日废土：最后一辆校车" },
-            { id: "world5", name: "【支线五】宫廷权谋：皇子伴读的日常" },
-            { id: "world6", name: "【支线六】蒸汽朋克：齿轮驱动的心脏" }
+            { id: "world1", name: "档案 I：伦理学困境与父权迭代" },
+            { id: "world2", name: "档案 II：黄色多孔介质噪音实验" },
+            { id: "world3", name: "档案 III：红薯淀粉的战术级应用" },
+            { id: "world4", name: "档案 IV：凌晨四点的空气动力学" },
+            { id: "world5", name: "【支线五】" },
+            { id: "world6", name: "【支线六】" }
         ];
 
         // 渲染6个普通选项
@@ -519,10 +519,16 @@
             // 因为在同一个文件夹，直接写文件名即可
             window.location.href = 'world1.html'; 
         } 
-        else if (worldId === 'world2') {
-            alert("开发中：魔法世界即将上线...");
-            // 将来做好了 world2.html，就在这里写 window.location.href = 'world2.html';
-        }
+       else if (worldId === 'world2') {
+    // 之前是 alert，现在改成：
+    window.location.href = 'world2.html';
+}
+else if (worldId === 'world3') {
+    window.location.href = 'world3.html';
+}
+else if (worldId === 'world4') {
+    window.location.href = 'world4.html';
+}
         else if (worldId === 'hidden_ending') {
             alert("你触发了隐藏结局！(这里可以跳转到 hidden.html)");
         }
@@ -568,5 +574,4 @@
 
 </script>
 </body>
-
 </html>
