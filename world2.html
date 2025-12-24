@@ -434,7 +434,8 @@
         });
     }
 
-    function resolveEnding() {
+   function resolveEnding() {
+        // 1. 设置结局文本
         dialogueBoxEl.style.opacity = 1;
         nameTagEl.style.display = 'none';
         systemBoxEl.style.display = 'none';
@@ -442,30 +443,46 @@
         let endTitle = "";
         let endText = "";
 
-        // 结局判定
+        // --- 你的结局判定逻辑 (保持不变) ---
         if (scores.acknowledge > scores.deny) {
-            // ✅ 坦白结局
             endTitle = "【结局：一起安静】";
             endText = "没有大声说什么。<br>只是站得近了一点。<br>在这个永远吵闹的地方，<br>你们终于学会了<br><span style='color:#1abc9c'>一起安静。</span>";
         } else {
-            // ❌ 沉默结局
             endTitle = "【结局：继续沉没】";
             endText = "什么都没有发生。<br>所以一切都会继续。<br>只是以后，<br>你再也没有等过<br>那道声音。";
         }
+        // --------------------------------
 
+        // 2. 显示结局文字
         textContentEl.innerHTML = `<h3 style='color:#f1c40f'>${endTitle}</h3><p>${endText}</p>`;
         
-        markWorldCleared("world2"); // 标记 World 2 通关
+        // 3. 标记通关
+        markWorldCleared("world2"); 
 
+        // 4. 【核心修改】延迟1.5秒后，使用“选项容器”来显示返回按钮
         setTimeout(() => {
-            const returnBtn = document.createElement('button');
-            returnBtn.className = 'choice-btn return-btn';
-            returnBtn.innerText = "世界线收束 · 返回中转站";
-            returnBtn.onclick = () => {
-                // 带上 skipIntro=true 参数，回主页不看片头
+            // (A) 再次强制隐藏点击层，双重保险
+            document.getElementById('click-catcher').style.display = 'none';
+
+            // (B) 呼叫最高层级的选项容器 (Z-Index 30)
+            choicesContainerEl.style.display = 'flex';
+            choicesContainerEl.innerHTML = ''; // 清空以前的选项
+
+            // (C) 创建返回按钮
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn'; // 复用你的选项样式
+            btn.innerText = "世界线收束 · 返回中转站";
+            
+            // (D) 绑定点击事件
+            btn.onclick = (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                console.log("正在跳转回主页...");
                 window.location.href = './index.html?skipIntro=true';
             };
-            textContentEl.appendChild(returnBtn);
+
+            // (E) 加入到高层容器中
+            choicesContainerEl.appendChild(btn);
+
         }, 1500);
     }
 
