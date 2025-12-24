@@ -461,8 +461,7 @@
  
    // 结局判定逻辑
     function resolveEnding() {
-// === 关键修复：关掉挡路的点击层 ===
-        document.getElementById('click-catcher').style.display = 'none';
+        // 1. 设置结局文本
         dialogueBoxEl.style.opacity = 1;
         nameTagEl.style.display = 'none';
         systemBoxEl.style.display = 'none';
@@ -481,26 +480,36 @@
             endText = "方天画戟还是刺了下去。<br>血溅在你脸上，烫得吓人。<br>他看着你，没有愤怒，只有一种让你心悸的解脱。<br>“奉先，做得好。”<br>你赢了名声，赢了美人，赢了天下。<br>但在这个瞬间，你通过他的死，<br>彻底杀死了你自己。";
         }
 
+        // 2. 显示结局文字
         textContentEl.innerHTML = `<h3 style='color:#d63031'>${endTitle}</h3><p>${endText}</p>`;
         
-        // 标记通关并添加返回按钮
+        // 3. 标记通关
         markWorldCleared("world1");
         
-        // 延迟显示返回按钮
-setTimeout(() => {
-            const returnBtn = document.createElement('button');
-            returnBtn.className = 'choice-btn return-btn';
+        // 4. 【核心修改】延迟2秒后，使用“选项容器”来显示返回按钮
+        setTimeout(() => {
+            // (A) 再次强制隐藏点击层，双重保险
+            const catcher = document.getElementById('click-catcher');
+            if(catcher) catcher.style.display = 'none';
+
+            // (B) 呼叫最高层级的选项容器 (Z-Index 30)
+            choicesContainerEl.style.display = 'flex';
+            choicesContainerEl.innerHTML = ''; // 清空以前的选项
+
+            // (C) 创建返回按钮
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn'; // 复用你的选项样式
+            btn.innerText = "世界线收束 · 返回中转站";
             
-            // 为了保险，给按钮加个超高的层级，防止被其他东西挡住
-            returnBtn.style.zIndex = "9999"; 
-            returnBtn.style.position = "relative";
-            
-            returnBtn.innerText = "世界线收束 · 返回中转站";
-            returnBtn.onclick = () => {
-                console.log("按钮被点击了！正在跳转..."); // 为了调试
+            // (D) 绑定点击事件
+            btn.onclick = (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                console.log("正在跳转回主页...");
                 window.location.href = './index.html?skipIntro=true';
             };
-            textContentEl.appendChild(returnBtn);
+
+            // (E) 加入到高层容器中
+            choicesContainerEl.appendChild(btn);
         }, 2000);
     }
 
