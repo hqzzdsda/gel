@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支线二：海底 · 沉默的邻居</title>
+    <style>
+        /* --- 全局样式 (深海冷色调) --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0d1b2a; /* 深海蓝黑 */
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            overflow: hidden;
+            color: #bdc3c7; /* 灰白色文字 */
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease, filter 2s ease;
+            opacity: 0;
+            filter: grayscale(30%); /* 画面自带一点灰度，体现压抑 */
+        }
+
+        /* 角色立绘 */
+        #character {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 80%;
+            width: auto;
+            z-index: 2;
+            transition: opacity 1.5s ease;
+            opacity: 0;
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 1.5s;
+        }
+
+        /* 对话框 (冷色系) */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            height: 260px;
+            /* 蓝灰色渐变 */
+            background: linear-gradient(180deg, rgba(13, 27, 42, 0) 0%, rgba(13, 27, 42, 0.95) 20%, rgba(5, 10, 15, 1) 100%);
+            z-index: 10;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            border-top: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #name-tag {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f1c40f; /* 百洁布宝宝的名字用黄色 */
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px rgba(241, 196, 15, 0.3);
+        }
+
+        #text-content {
+            font-size: 20px;
+            line-height: 1.7;
+            letter-spacing: 1px;
+            color: #ecf0f1;
+        }
+
+        /* 系统提示框 (青色科技感) */
+        .system-message-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            background: rgba(13, 27, 42, 0.95);
+            border: 1px solid #1abc9c; /* 青色 */
+            box-shadow: 0 0 15px rgba(26, 188, 156, 0.2);
+            color: #1abc9c;
+            padding: 25px;
+            text-align: center;
+            z-index: 20;
+            font-family: "Courier New", monospace;
+            display: none;
+        }
+
+        /* 选项样式 (极简风格) */
+        #choices-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7); /* 稍微通透一点 */
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .choice-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #7f8c8d;
+            color: #bdc3c7;
+            padding: 18px 40px;
+            font-size: 19px;
+            cursor: pointer;
+            width: 65%;
+            max-width: 450px;
+            transition: all 0.4s;
+            text-align: center;
+        }
+
+        .choice-btn:hover {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+            transform: scale(1.02);
+        }
+
+        #click-catcher {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            cursor: pointer;
+        }
+        
+        .return-btn {
+            margin-top: 30px;
+            background: #1abc9c;
+            color: #000;
+            border: none;
+            font-weight: bold;
+        }
+        .return-btn:hover {
+            background: #16a085;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="background"></div>
+    <img id="character" src="" alt="Character">
+    <div id="overlay"></div>
+
+    <div id="system-box" class="system-message-container">
+        <div id="system-content" class="system-text"></div>
+    </div>
+
+    <div id="choices-container"></div>
+
+    <div id="dialogue-box">
+        <div id="name-tag"></div>
+        <div id="text-content"></div>
+    </div>
+
+    <div id="click-catcher" onclick="nextStep()"></div>
+</div>
+
+<script>
+    // --- 游戏状态 ---
+    let currentStepIndex = 0;
+    let isTyping = false;
+    let typeInterval;
+    
+    // 核心数值：Acknowledge (面对/承认) vs Deny (否认/逃避)
+    let scores = {
+        acknowledge: 0,
+        deny: 0
+    };
+
+    // --- 资源路径 (请替换图片) ---
+    const ASSETS = {
+        bg_cashier: './images/bgcashier.png', // 蟹堡王收银台
+        bg_street: './images/bgstreet.png',   // 黄昏街道
+        bg_storm: './images/bgstorm.png',     // 暴雨夜
+        bg_calm: './images/bgcalm.png',       // 雨后
+        char_sb: './images/charspongebaby.png' // 百洁布baby
+    };
+
+    // --- 剧本 ---
+    const storyScript = [
+        // ▶ W02-Scene 0｜进入
+        { type: 'system', text: "转生路径确认中……" },
+        { type: 'system', text: "当前身份：已分配。\n记忆限制：启用。" },
+        { type: 'system', text: "转生完成。", bgAction: 'fadeIn', bgSrc: ASSETS.bg_cashier },
+
+        // ▶ W02-Scene 1｜日常 · 重复
+        { type: 'narrative', text: "我坐在柜台后面。\n手里没有事做。" },
+        { type: 'narrative', text: "时间在流动。\n但不明显。" },
+        { type: 'narrative', text: "有人在笑。\n声音从远处传来。" },
+        { type: 'narrative', text: "我知道是谁。\n我甚至不用回头。" },
+        { type: 'system', text: "当前状态：稳定。" },
+
+        // 🔹 Choice 1
+        { 
+            type: 'choice',
+            question: "【第一反应】那个笑声……",
+            choices: [
+                { text: "A. 烦躁", effect: { deny: 1 } },
+                { text: "B. 无视", effect: { deny: 1 } },
+                { text: "C. 等待它停下", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W02-Scene 2｜他靠近了
+        { type: 'narrative', text: "他站在柜台前。\n太近了。", charAction: 'show', charSrc: ASSETS.char_sb },
+        { type: 'dialogue', name: '百洁布baby', text: "今天好像有点安静呢。" },
+        { type: 'narrative', text: "我没有立刻回答。" },
+        { type: 'narrative', text: "不是因为没听见。\n而是因为——\n我在等他说下一句。" },
+
+        // 🔹 Choice 2
+        { 
+            type: 'choice',
+            question: "【回应方式】你会怎么做？",
+            choices: [
+                { text: "A. 冷淡回应（继续看杂志）", effect: { deny: 1 } },
+                { text: "B. 敷衍玩笑（把他打发走）", effect: { deny: 1 } },
+                { text: "C. 简短回应，但没赶他走", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "行为记录中……" },
+
+        // ▶ W02-Scene 3｜依赖浮现
+        { type: 'narrative', text: "下班后，我走在回家的路上。", bgAction: 'change', bgSrc: ASSETS.bg_street, charAction: 'hide' },
+        { type: 'narrative', text: "很安静。\n安静得——\n有点不对劲。" },
+        { type: 'narrative', text: "我停下脚步。\n我在想：\n他今天，为什么没再说话？" },
+
+        // 🔹 Choice 3
+        { 
+            type: 'choice',
+            question: "【内省】你意识到自己在意这份安静。",
+            choices: [
+                { text: "A. 立刻否认（我只是累了）", effect: { deny: 1 } },
+                { text: "B. 说服自己这是习惯", effect: { deny: 1 } },
+                { text: "C. 承认有点失落", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "记录已更新。" },
+
+        // ▶ W02-Scene 4｜暴风雨夜 · 被困
+        { type: 'narrative', text: "雨声压住了一切。", bgAction: 'change', bgSrc: ASSETS.bg_storm },
+        { type: 'narrative', text: "门关不上。\n电闪了一下。\n只剩下我们两个。", charAction: 'show', charSrc: ASSETS.char_sb },
+        { type: 'narrative', text: "他在整理东西。\n动作很慢。\n像是在刻意拖延。" },
+
+        // 🔹 Choice 4
+        { 
+            type: 'choice',
+            question: "【共处】在暴风雨中，你会？",
+            choices: [
+                { text: "A. 明确拉开距离", effect: { deny: 1 } },
+                { text: "B. 默许沉默共处", effect: { ack: 1 } },
+                { text: "C. 主动开口，但后悔", effect: { ack: 1, deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W02-Scene 5｜对话临界点
+        { type: 'dialogue', name: '百洁布baby', text: "你是不是……\n其实不讨厌我？" },
+        { type: 'narrative', text: "这句话来得太突然。\n我没有准备答案。" },
+
+        // 🔹 Choice 5
+        { 
+            type: 'choice',
+            question: "【关键提问】你的回答是？",
+            choices: [
+                { text: "A. 否认（你在胡说什么）", effect: { deny: 1 } },
+                { text: "B. 转移话题（雨停了我就走）", effect: { deny: 1 } },
+                { text: "C. 沉默", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W02-Scene 6｜最后一刻
+        { type: 'narrative', text: "风暴停了。", bgAction: 'change', bgSrc: ASSETS.bg_calm, charAction: 'hide' },
+        { type: 'narrative', text: "门可以打开了。" },
+        { type: 'narrative', text: "他站在那儿，\n等你先走，\n还是先说。" },
+        { type: 'system', text: "当前路径倾向：已锁定。" },
+
+        // 🔹 Choice 6 (Final Attitude)
+        { 
+            type: 'choice',
+            question: "【最后时刻】你会留下什么？",
+            choices: [
+                { text: "A. 说一句多余的话（比如“明天见”）", effect: { ack: 1 } },
+                { text: "B. 什么都不说，直接离开", effect: { deny: 1 } }
+            ]
+        },
+
+        // 结局判定点
+        { type: 'logic_check' }
+    ];
+
+    // --- 引擎逻辑 (复用 World 1 核心) ---
+    const bgEl = document.getElementById('background');
+    const charEl = document.getElementById('character');
+    const overlayEl = document.getElementById('overlay');
+    const nameTagEl = document.getElementById('name-tag');
+    const textContentEl = document.getElementById('text-content');
+    const dialogueBoxEl = document.getElementById('dialogue-box');
+    const systemBoxEl = document.getElementById('system-box');
+    const systemContentEl = document.getElementById('system-content');
+    const choicesContainerEl = document.getElementById('choices-container');
+
+    function nextStep() {
+        if (isTyping) { finishTyping(); return; }
+        if (currentStepIndex >= storyScript.length) return;
+
+        const step = storyScript[currentStepIndex];
+
+        if (step.type === 'logic_check') {
+            resolveEnding();
+            return;
+        }
+
+        handleEffects(step);
+
+        if (step.type === 'choice') {
+            showChoices(step);
+        } else if (step.type === 'system') {
+            showSystemMessage(step.text);
+            currentStepIndex++;
+        } else {
+            showDialogue(step);
+            currentStepIndex++;
+        }
+    }
+
+    function handleEffects(step) {
+        if (step.bgAction === 'fadeIn') {
+            overlayEl.style.opacity = 0;
+            bgEl.style.opacity = 1;
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        } else if (step.bgAction === 'change') {
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        }
+        
+        if (step.charAction === 'show') {
+            charEl.style.opacity = 1;
+            if(step.charSrc) charEl.src = step.charSrc;
+        } else if (step.charAction === 'hide') {
+            charEl.style.opacity = 0;
+        }
+    }
+
+    function showDialogue(step) {
+        systemBoxEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        
+        if (step.name) {
+            nameTagEl.innerText = step.name;
+            nameTagEl.style.display = 'block';
+        } else {
+            nameTagEl.style.display = 'none';
+        }
+        typeWriter(step.text.replace(/\n/g, '<br>'), textContentEl);
+    }
+
+    function showSystemMessage(text) {
+        dialogueBoxEl.style.opacity = 0;
+        systemBoxEl.style.display = 'block';
+        typeWriter(text, systemContentEl);
+    }
+
+    function showChoices(step) {
+        choicesContainerEl.style.display = 'flex';
+        choicesContainerEl.innerHTML = '';
+        
+        const title = document.createElement('h2');
+        title.innerText = step.question;
+        title.style.color = '#bdc3c7';
+        title.style.marginBottom = '20px';
+        choicesContainerEl.appendChild(title);
+
+        step.choices.forEach(choice => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (choice.effect) {
+                    if (choice.effect.ack) scores.acknowledge += choice.effect.ack;
+                    if (choice.effect.deny) scores.deny += choice.effect.deny;
+                }
+                choicesContainerEl.style.display = 'none';
+                currentStepIndex++;
+                nextStep();
+            };
+            choicesContainerEl.appendChild(btn);
+        });
+    }
+
+    function resolveEnding() {
+        dialogueBoxEl.style.opacity = 1;
+        nameTagEl.style.display = 'none';
+        systemBoxEl.style.display = 'none';
+        
+        let endTitle = "";
+        let endText = "";
+
+        // 结局判定
+        if (scores.acknowledge > scores.deny) {
+            // ✅ 坦白结局
+            endTitle = "【结局：一起安静】";
+            endText = "没有大声说什么。<br>只是站得近了一点。<br>在这个永远吵闹的地方，<br>你们终于学会了<br><span style='color:#1abc9c'>一起安静。</span>";
+        } else {
+            // ❌ 沉默结局
+            endTitle = "【结局：继续沉没】";
+            endText = "什么都没有发生。<br>所以一切都会继续。<br>只是以后，<br>你再也没有等过<br>那道声音。";
+        }
+
+        textContentEl.innerHTML = `<h3 style='color:#f1c40f'>${endTitle}</h3><p>${endText}</p>`;
+        
+        markWorldCleared("world2"); // 标记 World 2 通关
+
+        setTimeout(() => {
+            const returnBtn = document.createElement('button');
+            returnBtn.className = 'choice-btn return-btn';
+            returnBtn.innerText = "世界线收束 · 返回中转站";
+            returnBtn.onclick = () => {
+                // 带上 skipIntro=true 参数，回主页不看片头
+                window.location.href = 'index.html?skipIntro=true';
+            };
+            textContentEl.appendChild(returnBtn);
+        }, 1500);
+    }
+
+    function markWorldCleared(worldId) {
+        const SAVE_KEY = "reborn_game_cleared_worlds";
+        let clearedWorlds = JSON.parse(localStorage.getItem(SAVE_KEY)) || [];
+        if (!clearedWorlds.includes(worldId)) {
+            clearedWorlds.push(worldId);
+            localStorage.setItem(SAVE_KEY, JSON.stringify(clearedWorlds));
+        }
+    }
+
+    function typeWriter(htmlText, targetElement) {
+        isTyping = true;
+        let fullText = htmlText;
+        targetElement.innerHTML = '';
+        let i = 0;
+        clearInterval(typeInterval);
+        
+        typeInterval = setInterval(() => {
+            if (i >= fullText.length) { finishTyping(); return; }
+            if (fullText[i] === '<') {
+                const closeIndex = fullText.indexOf('>', i);
+                targetElement.innerHTML += fullText.substring(i, closeIndex + 1);
+                i = closeIndex + 1;
+            } else {
+                targetElement.innerHTML += fullText[i];
+                i++;
+            }
+        }, 40);
+    }
+
+    function finishTyping() {
+        clearInterval(typeInterval);
+        isTyping = false;
+    }
+
+    // 启动
+    nextStep();
+
+</script>
+</body>
+</html>

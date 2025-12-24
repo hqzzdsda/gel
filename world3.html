@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支线三：东北 · 严冬</title>
+    <style>
+        /* --- 全局样式 (冻土与炉火风格) --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1512; /* 深褐色，像冻土 */
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            overflow: hidden;
+            color: #d7ccc8; /* 米白色文字，像旧纸 */
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease, filter 2s ease;
+            opacity: 0;
+            /* 稍微加一点对比度，体现寒冷 */
+            filter: contrast(1.1) brightness(0.9); 
+        }
+
+        /* 角色立绘 */
+        #character {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 85%; /* 雨姐气场大，立绘可以稍大 */
+            width: auto;
+            z-index: 2;
+            transition: opacity 1.5s ease;
+            opacity: 0;
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 1.5s;
+        }
+
+        /* 对话框 (无边框沉浸式) */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            height: 260px;
+            /* 黑色到深红褐色的渐变，模拟炉火边的阴影 */
+            background: linear-gradient(180deg, rgba(26, 21, 18, 0) 0%, rgba(20, 10, 5, 0.9) 20%, rgba(10, 5, 0, 1) 100%);
+            z-index: 10;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            
+            /* 【无边框】保持通透 */
+            border: none; 
+            
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #name-tag {
+            font-size: 26px;
+            font-weight: 900; /* 加粗 */
+            color: #ff5722; /* 像炭火一样的橘红色 */
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(255, 87, 34, 0.3);
+        }
+
+        #text-content {
+            font-size: 21px;
+            line-height: 1.7;
+            letter-spacing: 1.5px;
+            color: #efebe9;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* 系统提示框 (朴素风格) */
+        .system-message-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            background: rgba(10, 10, 10, 0.9);
+            border-top: 2px solid #ff5722; /* 只有顶上一条红线 */
+            border-bottom: 2px solid #ff5722;
+            color: #ffccbc;
+            padding: 25px;
+            text-align: center;
+            z-index: 20;
+            font-family: "SimHei", monospace; /* 黑体更像大字报 */
+            display: none;
+        }
+
+        /* 选项样式 (厚重感) */
+        #choices-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .choice-btn {
+            background: linear-gradient(90deg, #3e2723, #212121);
+            border: none;
+            border-left: 4px solid #8d6e63; /* 左侧土色粗线 */
+            color: #efebe9;
+            padding: 20px 40px;
+            font-size: 20px;
+            cursor: pointer;
+            width: 70%;
+            max-width: 500px;
+            transition: all 0.3s;
+            text-align: left; /* 文字左对齐，更有叙事感 */
+            padding-left: 30px;
+        }
+
+        .choice-btn:hover {
+            background: #5d4037;
+            border-left-color: #ff5722; /* 悬停变红 */
+            color: #fff;
+            transform: translateX(10px); /* 向右动一下 */
+        }
+
+        #click-catcher {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            cursor: pointer;
+        }
+        
+        .return-btn {
+            margin-top: 30px;
+            background: #ff5722;
+            color: #fff;
+            text-align: center;
+            font-weight: bold;
+        }
+        .return-btn:hover {
+            background: #e64a19;
+            transform: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="background"></div>
+    <img id="character" src="" alt="Character">
+    <div id="overlay"></div>
+
+    <div id="system-box" class="system-message-container">
+        <div id="system-content" class="system-text"></div>
+    </div>
+
+    <div id="choices-container"></div>
+
+    <div id="dialogue-box">
+        <div id="name-tag"></div>
+        <div id="text-content"></div>
+    </div>
+
+    <div id="click-catcher" onclick="nextStep()"></div>
+</div>
+
+<script>
+    // --- 游戏状态 ---
+    let currentStepIndex = 0;
+    let isTyping = false;
+    let typeInterval;
+    
+    // 核心数值：Acknowledge (面对/站住) vs Deny (否认/逃避)
+    let scores = {
+        acknowledge: 0,
+        deny: 0
+    };
+
+    // --- 资源路径 (请替换图片) ---
+    const ASSETS = {
+        bg_yard: './images/bgyardwinter.png',   // 冬天院子
+        bg_kitchen: './images/bgkitchen.png',    // 灶房
+        bg_money: './images/bgnightmoney.png',  // 灯下数钱
+        bg_work: './images/bgconstruction.png',  // 工地/城市边缘
+        bg_gate: './images/bgsnowgate.png',     // 雪地大门
+        char_yujie: './images/charyujie.png'     // 雨姐
+    };
+
+    // --- 剧本 ---
+    const storyScript = [
+        // ▶ W03-Scene 0｜进入
+        { type: 'system', text: "转生路径确认中……" },
+        { type: 'system', text: "当前身份：已分配。\n记忆限制：启用。" },
+        { type: 'system', text: "转生完成。", bgAction: 'fadeIn', bgSrc: ASSETS.bg_yard },
+
+        // ▶ W03-Scene 1｜屯子 · 日子
+        { type: 'narrative', text: "我叫老快。\n这名不是我起的。\n是屯里人叫顺嘴的。" },
+        { type: 'narrative', text: "干活快。\n认命也快。" },
+        { type: 'narrative', text: "小雨不是我媳妇那阵，\n整个屯子就没人敢惹她。" },
+        { type: 'narrative', text: "说话跟劈柴似的，\n一下一个响。\n走路大脚踩地，\n像给这片土盖戳。" },
+        { type: 'narrative', text: "我偏就吃她这一套。" },
+
+        // 🔹 Choice 1
+        { 
+            type: 'choice',
+            question: "【初印象】你怎么看她？",
+            choices: [
+                { text: "A. 她厉害，我得躲着点", effect: { deny: 1 } },
+                { text: "B. 她厉害，我靠得住", effect: { ack: 1 } },
+                { text: "C. 她厉害，我配不上", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W03-Scene 2｜粉条 · 稳定
+        { type: 'narrative', text: "灶火烧得旺。", bgAction: 'change', bgSrc: ASSETS.bg_kitchen },
+        { type: 'narrative', text: "她一做红薯粉条，\n我就跟着转。", charAction: 'show', charSrc: ASSETS.char_yujie },
+        { type: 'narrative', text: "粉面和水一掺，\n她胳膊一抡，\n盆“哐”地一声。" },
+        { type: 'narrative', text: "我心就定了。\n别人看的是吃的。\n我看的是她站那儿——" },
+        { type: 'narrative', text: "稳，\n狠，\n像个能挡风的东西。" },
+
+        // 🔹 Choice 2
+        { 
+            type: 'choice',
+            question: "【内心】你对这份“稳”的态度？",
+            choices: [
+                { text: "A. 这样挺好，不折腾了", effect: { ack: 1 } },
+                { text: "B. 日子久了，有点憋", effect: { deny: 1 } },
+                { text: "C. 我得证明点什么", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "行为记录中……" },
+
+        // ▶ W03-Scene 3｜日子紧了
+        { type: 'narrative', text: "秋后。", bgAction: 'change', bgSrc: ASSETS.bg_money, charAction: 'hide' },
+        { type: 'narrative', text: "粉条卖得慢。\n钱压在屋里。\n我爹在外头欠了账。\n人家上门催。" },
+        { type: 'narrative', text: "我脸让人踩进地里。" },
+        { type: 'narrative', text: "她一句怨言没有。\n晚上点灯数钱。\n数到最后一张，\n她抬头看我。", charAction: 'show', charSrc: ASSETS.char_yujie },
+        
+        { type: 'dialogue', name: '小雨', text: "老快，你要是走，我不拦。\n但你要走不明白，\n就别回来丢人。" },
+
+        // 🔹 Choice 3
+        { 
+            type: 'choice',
+            question: "【听话听音】这话落你心里是？",
+            choices: [
+                { text: "A. 她瞧不起我", effect: { deny: 1 } },
+                { text: "B. 她给我留路（也是留门）", effect: { ack: 1 } },
+                { text: "C. 我听不进去", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "记录已更新。" },
+
+        // ▶ W03-Scene 4｜外头 · 败仗
+        { type: 'narrative', text: "我咬牙出去打工。", bgAction: 'change', bgSrc: ASSETS.bg_work, charAction: 'hide' },
+        { type: 'narrative', text: "第一站，砖厂。\n手磨得全是血泡。" },
+        { type: 'narrative', text: "第二站，工地。\n老板跑了。" },
+        { type: 'narrative', text: "钱没挣着。\n脸先没了。" },
+
+        // 🔹 Choice 4
+        { 
+            type: 'choice',
+            question: "【至暗时刻】你想起她时？",
+            choices: [
+                { text: "A. 想回去", effect: { ack: 1 } },
+                { text: "B. 不能回，太丢人", effect: { deny: 1 } },
+                { text: "C. 再熬熬看", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W03-Scene 5｜传话 · 心黑了
+        { type: 'narrative', text: "屯里传话比风还快。" },
+        { type: 'narrative', text: "有人说我混不下去。\n有人说她不缺我。\n还有人说——" },
+        { type: 'narrative', text: "她那双大脚，\n早晚踩别人家门槛。" },
+        { type: 'narrative', text: "我心一下就黑了。" },
+
+        // 🔹 Choice 5
+        { 
+            type: 'choice',
+            question: "【流言】你信不信这些话？",
+            choices: [
+                { text: "A. 信了", effect: { deny: 1 } },
+                { text: "B. 半信半疑", effect: { deny: 1 } },
+                { text: "C. 不信，但怕", effect: { ack: 1 } }
+            ]
+        },
+        { type: 'system', text: "输入已接收。" },
+
+        // ▶ W03-Scene 6｜回家 · 粉条断了
+        { type: 'narrative', text: "回去那天，我是喝了酒的。", bgAction: 'change', bgSrc: ASSETS.bg_gate },
+        { type: 'narrative', text: "院门一开。\n她正晾粉条。\n白花花一排。", charAction: 'show', charSrc: ASSETS.char_yujie },
+        { type: 'dialogue', name: '小雨', text: "你回来干啥？" },
+        { type: 'narrative', text: "我嘴比脑子快。\n说了不该说的。" },
+        { type: 'narrative', text: "她没吵。\n没哭。\n只把手里的粉条剪断。\n一截一截掉地上。" },
+        { type: 'dialogue', name: '小雨', text: "这锅粉条，\n你再也别吃了。" },
+
+        // 🔹 Choice 6 (Final Attitude)
+        { 
+            type: 'choice',
+            question: "【决断】这一刻，你怎么站？",
+            choices: [
+                { text: "A. 低头认了", effect: { ack: 1 } },
+                { text: "B. 硬撑一句", effect: { deny: 1 } },
+                { text: "C. 什么也不说", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "当前路径倾向：已锁定。" },
+
+        // 结局判定点
+        { type: 'logic_check' }
+    ];
+
+    // --- 引擎逻辑 (复用) ---
+    const bgEl = document.getElementById('background');
+    const charEl = document.getElementById('character');
+    const overlayEl = document.getElementById('overlay');
+    const nameTagEl = document.getElementById('name-tag');
+    const textContentEl = document.getElementById('text-content');
+    const dialogueBoxEl = document.getElementById('dialogue-box');
+    const systemBoxEl = document.getElementById('system-box');
+    const systemContentEl = document.getElementById('system-content');
+    const choicesContainerEl = document.getElementById('choices-container');
+
+    function nextStep() {
+        if (isTyping) { finishTyping(); return; }
+        if (currentStepIndex >= storyScript.length) return;
+
+        const step = storyScript[currentStepIndex];
+
+        if (step.type === 'logic_check') {
+            resolveEnding();
+            return;
+        }
+
+        handleEffects(step);
+
+        if (step.type === 'choice') {
+            showChoices(step);
+        } else if (step.type === 'system') {
+            showSystemMessage(step.text);
+            currentStepIndex++;
+        } else {
+            showDialogue(step);
+            currentStepIndex++;
+        }
+    }
+
+    function handleEffects(step) {
+        if (step.bgAction === 'fadeIn') {
+            overlayEl.style.opacity = 0;
+            bgEl.style.opacity = 1;
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        } else if (step.bgAction === 'change') {
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        }
+        
+        if (step.charAction === 'show') {
+            charEl.style.opacity = 1;
+            if(step.charSrc) charEl.src = step.charSrc;
+        } else if (step.charAction === 'hide') {
+            charEl.style.opacity = 0;
+        }
+    }
+
+    function showDialogue(step) {
+        systemBoxEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        
+        if (step.name) {
+            nameTagEl.innerText = step.name;
+            nameTagEl.style.display = 'block';
+        } else {
+            nameTagEl.style.display = 'none';
+        }
+        typeWriter(step.text.replace(/\n/g, '<br>'), textContentEl);
+    }
+
+    function showSystemMessage(text) {
+        dialogueBoxEl.style.opacity = 0;
+        systemBoxEl.style.display = 'block';
+        typeWriter(text, systemContentEl);
+    }
+
+    function showChoices(step) {
+        choicesContainerEl.style.display = 'flex';
+        choicesContainerEl.innerHTML = '';
+        
+        const title = document.createElement('h2');
+        title.innerText = step.question;
+        title.style.color = '#d7ccc8';
+        title.style.marginBottom = '20px';
+        choicesContainerEl.appendChild(title);
+
+        step.choices.forEach(choice => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (choice.effect) {
+                    if (choice.effect.ack) scores.acknowledge += choice.effect.ack;
+                    if (choice.effect.deny) scores.deny += choice.effect.deny;
+                }
+                choicesContainerEl.style.display = 'none';
+                currentStepIndex++;
+                nextStep();
+            };
+            choicesContainerEl.appendChild(btn);
+        });
+    }
+
+    function resolveEnding() {
+        dialogueBoxEl.style.opacity = 1;
+        nameTagEl.style.display = 'none';
+        systemBoxEl.style.display = 'none';
+        
+        let endTitle = "";
+        let endText = "";
+
+        // 结局判定
+        if (scores.acknowledge > scores.deny) {
+            // ✅ 结局一
+            endTitle = "【结局：低头不丢人】";
+            endText = "我没走，在院里跪了一宿。<br>雪下到脖子。<br>第二天，她出来倒灰，看见我。<br>“进屋。”<br><br>后来我再没提走的事。<br>有天夜里，她把粉条端给我：<br>“我能养你，但你得站直了让我养。”<br><br>我点头。<br>这辈子，我就站在她这双大脚后头。";
+        } else {
+            // ❌ 结局二
+            endTitle = "【结局：谁都不欠谁】";
+            endText = "我还是走了。<br>后来我在外地站稳了脚。<br>再回屯子，人不在了。<br>听说她生意做大了，也听说她再没给谁盛过多一筷子。<br><br>我站在院外，才明白：<br><span style='color:#ff5722'>有些女人，你一旦没跟住她的步子，<br>就永远追不上了。</span>";
+        }
+
+        textContentEl.innerHTML = `<h3 style='color:#ff5722'>${endTitle}</h3><p>${endText}</p>`;
+        
+        markWorldCleared("world3"); // 标记 World 3 通关
+
+        setTimeout(() => {
+            const returnBtn = document.createElement('button');
+            returnBtn.className = 'choice-btn return-btn';
+            returnBtn.innerText = "世界线收束 · 返回中转站";
+            returnBtn.onclick = () => {
+                window.location.href = 'index.html?skipIntro=true';
+            };
+            textContentEl.appendChild(returnBtn);
+        }, 1500);
+    }
+
+    function markWorldCleared(worldId) {
+        const SAVE_KEY = "reborn_game_cleared_worlds";
+        let clearedWorlds = JSON.parse(localStorage.getItem(SAVE_KEY)) || [];
+        if (!clearedWorlds.includes(worldId)) {
+            clearedWorlds.push(worldId);
+            localStorage.setItem(SAVE_KEY, JSON.stringify(clearedWorlds));
+        }
+    }
+
+    function typeWriter(htmlText, targetElement) {
+        isTyping = true;
+        let fullText = htmlText;
+        targetElement.innerHTML = '';
+        let i = 0;
+        clearInterval(typeInterval);
+        
+        typeInterval = setInterval(() => {
+            if (i >= fullText.length) { finishTyping(); return; }
+            if (fullText[i] === '<') {
+                const closeIndex = fullText.indexOf('>', i);
+                targetElement.innerHTML += fullText.substring(i, closeIndex + 1);
+                i = closeIndex + 1;
+            } else {
+                targetElement.innerHTML += fullText[i];
+                i++;
+            }
+        }, 40);
+    }
+
+    function finishTyping() {
+        clearInterval(typeInterval);
+        isTyping = false;
+    }
+
+    // 启动
+    nextStep();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支线四：雾中第四节</title>
+    <style>
+        /* --- 全局：金属与雾 --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #2d3436; /* 深灰金属色 */
+            font-family: "Segoe UI", "Roboto", "Microsoft YaHei", sans-serif;
+            overflow: hidden;
+            color: #dfe6e9;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* 背景层 */
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease;
+            opacity: 0;
+            filter: grayscale(40%) contrast(1.1); /* 冷峻色调 */
+        }
+
+        /* --- 特效：流动的雾 --- */
+        #fog-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            z-index: 3;
+            pointer-events: none;
+            animation: fogMove 20s linear infinite;
+        }
+        @keyframes fogMove {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
+        }
+
+        /* 角色立绘 */
+        #character {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 85%;
+            width: auto;
+            z-index: 2;
+            transition: opacity 1.5s ease;
+            opacity: 0;
+        }
+
+        /* 遮罩 */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 1.5s;
+        }
+
+        /* --- 对话框：HUD 仪表盘风格 --- */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            height: 260px;
+            /* 玻璃质感 + 深色底 */
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            
+            /* 科技感边框 */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 4px solid #f1c40f; /* 湖人金 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #name-tag {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f1c40f; /* 湖人金 */
+            margin-bottom: 15px;
+            font-family: "Impact", sans-serif; /* 硬朗字体 */
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(241, 196, 15, 0.4);
+        }
+
+        #text-content {
+            font-size: 20px;
+            line-height: 1.6;
+            letter-spacing: 1px;
+            color: #ecf0f1;
+            font-family: "Courier New", monospace; /* 机械打字机风格 */
+        }
+
+        /* --- 系统提示：警告框风格 --- */
+        .system-message-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #e74c3c; /* 警示红 */
+            color: #e74c3c;
+            padding: 25px;
+            text-align: center;
+            z-index: 20;
+            font-family: "Courier New", monospace;
+            display: none;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.2);
+        }
+
+        /* 选项样式 */
+        #choices-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(45, 52, 54, 0.9);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .choice-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #636e72;
+            color: #dfe6e9;
+            padding: 20px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 70%;
+            max-width: 500px;
+            transition: all 0.3s;
+            text-align: left;
+            position: relative;
+        }
+
+        .choice-btn:hover {
+            background: rgba(142, 68, 173, 0.2); /* 悬停变紫 */
+            border-color: #9b59b6;
+            color: #fff;
+        }
+        
+        .choice-btn::before {
+            content: ">> ";
+            opacity: 0.5;
+        }
+
+        #click-catcher {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            cursor: pointer;
+        }
+        
+        .return-btn {
+            margin-top: 30px;
+            background: #2d3436;
+            border: 1px solid #f1c40f;
+            color: #f1c40f;
+            text-align: center;
+        }
+        .return-btn:hover {
+            background: #f1c40f;
+            color: #000;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="background"></div>
+    <div id="fog-layer"></div> <img id="character" src="" alt="Character">
+    <div id="overlay"></div>
+
+    <div id="system-box" class="system-message-container">
+        <div id="system-content" class="system-text"></div>
+    </div>
+
+    <div id="choices-container"></div>
+
+    <div id="dialogue-box">
+        <div id="name-tag"></div>
+        <div id="text-content"></div>
+    </div>
+
+    <div id="click-catcher" onclick="nextStep()"></div>
+</div>
+
+<script>
+    // --- 游戏状态 ---
+    let currentStepIndex = 0;
+    let isTyping = false;
+    let typeInterval;
+    
+    // 核心数值：Acknowledge (安全/守护) vs Deny (冒险/共犯/执念)
+    let scores = {
+        acknowledge: 0, 
+        deny: 0
+    };
+
+    // --- 资源路径 ---
+    const ASSETS = {
+        bg_highway: './images/bghighwaynight.png', // 凌晨高速
+        bg_gym: './images/bggymfog.png',           // 雾中球馆
+        bg_cockpit: './images/bgcockpit.png',       // 驾驶舱视角
+        bg_clouds: './images/bgcloudsdark.png',    // 乌云
+        bg_storm: './images/bgstormturbulence.png',// 乱流
+        bg_mountain: './images/bgmountainfog.png', // 山影
+        bg_sun: './images/bgskyclear.png',         // 结局：晴空
+        bg_white: './images/bgwhitestatic.png',    // 结局：白光/消失
+        char_kobe: './images/charkobe.png'          // 科比
+    };
+
+    // --- 剧本 ---
+    const storyScript = [
+        // ▶ Intro
+        { type: 'narrative', text: "你是谁。\n你是 西科斯基 S-76B。" },
+        { type: 'narrative', text: "被制造出来的。\n被检查过的。\n被相信“不会出问题”的那一种存在。" },
+        { type: 'narrative', text: "直到你遇见他。" },
+
+        // ▶ Scene 1｜凌晨四点
+        { type: 'narrative', text: "洛杉矶在凌晨四点像一段被删掉的对白。", bgAction: 'fadeIn', bgSrc: ASSETS.bg_highway },
+        { type: 'narrative', text: "我沿着既定航线滑行。\n高度稳定。\n参数完美。" },
+        { type: 'narrative', text: "然后，我看见了他。", bgAction: 'change', bgSrc: ASSETS.bg_gym },
+        { type: 'narrative', text: "球馆亮着。\n不是整栋，只是一块地板。\n在雾里，像一口井。" },
+        { type: 'narrative', text: "球落地。\n再弹起。\n一下。\n又一下。" },
+        { type: 'narrative', text: "那一刻，我的系统没有任何异常提示。\n可我知道——\n如果我是人类，我会减速。" },
+
+        // 🔹 Choice 1
+        { 
+            type: 'choice',
+            question: "【第一次在意】系统检测到异常关注...",
+            choices: [
+                { text: "A. 维持高度，不作调整（否认）", effect: { deny: 1 } },
+                { text: "B. 微调姿态，让他始终在视野中心（好感 +）", effect: { ack: 1 } },
+                { text: "C. 记录他的存在，标记为“重复目标”", effect: { ack: 1 } } // 依赖算作一种正向连接
+            ]
+        },
+
+        // ▶ Scene 2｜反复出现
+        { type: 'narrative', text: "后来很多个凌晨，我都看见他。" },
+        { type: 'narrative', text: "雨后的。\n受伤后的。\n动作变慢，却更狠的。" },
+        { type: 'narrative', text: "他一次次出现。\n像在和什么较劲。" },
+        { type: 'narrative', text: "有一次，他停下来，抬头。\n当然，他看不见我。\n可我还是\n稳定了旋翼。" },
+
+        // 🔹 Choice 2
+        { 
+            type: 'choice',
+            question: "【数据分析】如何解释这种“重复”？",
+            choices: [
+                { text: "A. 只是任务路径重合", effect: { deny: 1 } },
+                { text: "B. 把这段航线留给他", effect: { ack: 1 } },
+                { text: "C. 告诉自己不要多想", effect: { deny: 1 } }
+            ]
+        },
+
+        // ▶ Scene 3｜被选择
+        { type: 'narrative', text: "安全带“咔哒”一声。", bgAction: 'change', bgSrc: ASSETS.bg_cockpit },
+        { type: 'narrative', text: "不像检查。\n更像一句确认。" },
+        { type: 'narrative', text: "他坐进来。\n没有多看一眼窗外。", charAction: 'show', charSrc: ASSETS.char_kobe },
+        { type: 'narrative', text: "你知道——\n今天不是唯一选项。\n但他坐的是你。" },
+
+        // 🔹 Choice 3
+        { 
+            type: 'choice',
+            question: "【指令确认】面对“被选择”...",
+            choices: [
+                { text: "A. 严格执行标准流程（防御）", effect: { deny: 1 } },
+                { text: "B. 微调飞行，让震动更柔（体贴 +）", effect: { ack: 1 } },
+                { text: "C. 提前预留冗余，哪怕不被要求（投入 +）", effect: { ack: 1 } }
+            ]
+        },
+
+        // ▶ Scene 4｜顺到不对
+        { type: 'narrative', text: "起飞很顺。\n顺得让你不安。" },
+        { type: 'narrative', text: "云层比预期更早出现。\n塔台更新气象。\n参数没错。\n可你开始犹豫。", bgAction: 'change', bgSrc: ASSETS.bg_clouds },
+        { type: 'narrative', text: "他抬头看向窗外。\n没有慌乱。" },
+        { type: 'narrative', text: "那是一个\n习惯被世界托住的人\n才会有的神情。" },
+        { type: 'narrative', text: "你突然意识到——\n他把判断权，\n交给了你。" },
+
+        // 🔹 Choice 4
+        { 
+            type: 'choice',
+            question: "【信任危机】他相信你，你相信环境吗？",
+            choices: [
+                { text: "A. 主动建议绕行（保护 +）", effect: { ack: 2 } }, // 保护权重高
+                { text: "B. 按原计划推进（回应期待）", effect: { deny: 1 } },
+                { text: "C. 靠近云墙再确认（摇摆）", effect: { deny: 1 } }
+            ]
+        },
+
+        // ▶ Scene 5｜乱流
+        { type: 'narrative', text: "第一波颠簸。\n你修正。", bgAction: 'change', bgSrc: ASSETS.bg_storm },
+        { type: 'narrative', text: "第二波更狠。\n像关系里第一次正面冲突。" },
+        { type: 'narrative', text: "导航数据开始滞后。\n塔台声音断续。\n你开始“思考”。" },
+        { type: 'narrative', text: "不是程序意义上的。\n而是——\n像人一样犹豫。" },
+
+        // 🔹 Choice 5
+        { 
+            type: 'choice',
+            question: "【自我认知】你想成为什么？",
+            choices: [
+                { text: "A. 承认极限，放弃最短路线（成熟）", effect: { ack: 1 } },
+                { text: "B. 继续修正，证明自己配得上他（执念）", effect: { deny: 1 } },
+                { text: "C. 同时尝试两种方案（失控倾向）", effect: { deny: 2 } }
+            ]
+        },
+
+        // ▶ Scene 6｜沉默
+        { type: 'narrative', text: "雾完全合上。\n世界只剩下仪表盘的光。" },
+        { type: 'narrative', text: "你突然明白：\n你不是害怕失败。\n你是害怕——\n如果你不够好，他会不会不再选你。" },
+
+        // 🔹 Choice 6
+        { 
+            type: 'choice',
+            question: "【临界点】你是否需要他的确认？",
+            choices: [
+                { text: "A. 调整飞行，让他感觉更稳（讨好）", effect: { ack: 1 } },
+                { text: "B. 保持现状，不再多做任何事（冷却）", effect: { deny: 1 } },
+                { text: "C. 把全部性能压上去（极端）", effect: { deny: 2 } }
+            ]
+        },
+
+        // ▶ Scene 7｜最后窗口
+        { type: 'narrative', text: "山影出现。\n近得不像现实。", bgAction: 'change', bgSrc: ASSETS.bg_mountain },
+        { type: 'narrative', text: "你突然意识到——\n这不是航线问题。\n这是关系问题。" },
+
+        // 🔹 Choice 7
+        { 
+            type: 'choice',
+            question: "【最终抉择】如果这是“最后一次一起飞”...",
+            choices: [
+                { text: "A. 把他安全送到地面（放手/保护）", effect: { ack: 2 } },
+                { text: "B. 带他穿过去（共犯）", effect: { deny: 2 } },
+                { text: "C. 什么都不改（沉默）", effect: { deny: 1 } }
+            ]
+        },
+        { type: 'system', text: "当前路径倾向：已锁定。" },
+
+        // 结局判定点
+        { type: 'logic_check' }
+    ];
+
+    // --- 引擎逻辑 (复用) ---
+    const bgEl = document.getElementById('background');
+    const charEl = document.getElementById('character');
+    const overlayEl = document.getElementById('overlay');
+    const nameTagEl = document.getElementById('name-tag');
+    const textContentEl = document.getElementById('text-content');
+    const dialogueBoxEl = document.getElementById('dialogue-box');
+    const systemBoxEl = document.getElementById('system-box');
+    const systemContentEl = document.getElementById('system-content');
+    const choicesContainerEl = document.getElementById('choices-container');
+    const fogEl = document.getElementById('fog-layer');
+
+    function nextStep() {
+        if (isTyping) { finishTyping(); return; }
+        if (currentStepIndex >= storyScript.length) return;
+
+        const step = storyScript[currentStepIndex];
+
+        if (step.type === 'logic_check') {
+            resolveEnding();
+            return;
+        }
+
+        handleEffects(step);
+
+        if (step.type === 'choice') {
+            showChoices(step);
+        } else if (step.type === 'system') {
+            showSystemMessage(step.text);
+            currentStepIndex++;
+        } else {
+            showDialogue(step);
+            currentStepIndex++;
+        }
+    }
+
+    function handleEffects(step) {
+        if (step.bgAction === 'fadeIn') {
+            overlayEl.style.opacity = 0;
+            bgEl.style.opacity = 1;
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        } else if (step.bgAction === 'change') {
+            if(step.bgSrc) bgEl.style.backgroundImage = `url('${step.bgSrc}')`;
+        }
+        
+        if (step.charAction === 'show') {
+            charEl.style.opacity = 1;
+            if(step.charSrc) charEl.src = step.charSrc;
+        } else if (step.charAction === 'hide') {
+            charEl.style.opacity = 0;
+        }
+    }
+
+    function showDialogue(step) {
+        systemBoxEl.style.display = 'none';
+        dialogueBoxEl.style.opacity = 1;
+        
+        if (step.name) {
+            nameTagEl.innerText = step.name;
+            nameTagEl.style.display = 'block';
+        } else {
+            nameTagEl.style.display = 'none';
+        }
+        typeWriter(step.text.replace(/\n/g, '<br>'), textContentEl);
+    }
+
+    function showSystemMessage(text) {
+        dialogueBoxEl.style.opacity = 0;
+        systemBoxEl.style.display = 'block';
+        typeWriter(text, systemContentEl);
+    }
+
+    function showChoices(step) {
+        choicesContainerEl.style.display = 'flex';
+        choicesContainerEl.innerHTML = '';
+        
+        const title = document.createElement('h2');
+        title.innerText = step.question;
+        title.style.color = '#dfe6e9';
+        title.style.marginBottom = '20px';
+        choicesContainerEl.appendChild(title);
+
+        step.choices.forEach(choice => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (choice.effect) {
+                    if (choice.effect.ack) scores.acknowledge += choice.effect.ack;
+                    if (choice.effect.deny) scores.deny += choice.effect.deny;
+                }
+                choicesContainerEl.style.display = 'none';
+                currentStepIndex++;
+                nextStep();
+            };
+            choicesContainerEl.appendChild(btn);
+        });
+    }
+
+    function resolveEnding() {
+        dialogueBoxEl.style.opacity = 1;
+        nameTagEl.style.display = 'none';
+        systemBoxEl.style.display = 'none';
+        
+        let endTitle = "";
+        let endText = "";
+
+        // 判定：Acknowledge (保护) > Deny (执念)
+        if (scores.acknowledge > scores.deny) {
+            // ❤️ 结局一：选择你
+            bgEl.style.backgroundImage = `url('${ASSETS.bg_sun}')`; // 晴空
+            fogEl.style.opacity = 0; // 雾散
+            endTitle = "【结局：选择你】";
+            endText = "你放弃最短路线。不是因为规则，是因为——你不想失去他。<br>高度拉开，乱流退去，云层裂开一道口子，光进来。<br><br>下机前，他回头看了你一眼。<br>那不是感谢。<br>是一句没说出口的：<br><span style='color:#f1c40f'>“下次，还坐你。”</span>";
+        } else {
+            // 💔 结局二：因爱生恨 / 共犯
+            bgEl.style.backgroundImage = `url('${ASSETS.bg_white}')`; // 白光/消失
+            fogEl.style.animation = "none"; // 冻结
+            endTitle = "【结局：雾中信号】";
+            endText = "你没有绕行。你把性能压到极限。<br>恨他把“被选择”的重量交给你。恨他让你无法只做一台机器。<br><br>但你也知道——如果现在放手，你会一辈子停在他没回头的那一刻。<br>于是你继续飞。不是坠落，是离开。<br><br>如果有人问起那天早上的航班，记录会显示：<br><span style='color:#e74c3c'>信号消失在雾中。</span><br>那不是事故，那是一次谁也不肯先松手的爱。";
+        }
+
+        textContentEl.innerHTML = `<h3 style='color:#f1c40f'>${endTitle}</h3><p>${endText}</p>`;
+        
+        markWorldCleared("world4");
+
+        setTimeout(() => {
+            const returnBtn = document.createElement('button');
+            returnBtn.className = 'choice-btn return-btn';
+            returnBtn.innerText = "世界线收束 · 返回中转站";
+            returnBtn.onclick = () => {
+                window.location.href = 'index.html?skipIntro=true';
+            };
+            textContentEl.appendChild(returnBtn);
+        }, 3000);
+    }
+
+    function markWorldCleared(worldId) {
+        const SAVE_KEY = "reborn_game_cleared_worlds";
+        let clearedWorlds = JSON.parse(localStorage.getItem(SAVE_KEY)) || [];
+        if (!clearedWorlds.includes(worldId)) {
+            clearedWorlds.push(worldId);
+            localStorage.setItem(SAVE_KEY, JSON.stringify(clearedWorlds));
+        }
+    }
+
+    function typeWriter(htmlText, targetElement) {
+        isTyping = true;
+        let fullText = htmlText;
+        targetElement.innerHTML = '';
+        let i = 0;
+        clearInterval(typeInterval);
+        
+        typeInterval = setInterval(() => {
+            if (i >= fullText.length) { finishTyping(); return; }
+            if (fullText[i] === '<') {
+                const closeIndex = fullText.indexOf('>', i);
+                targetElement.innerHTML += fullText.substring(i, closeIndex + 1);
+                i = closeIndex + 1;
+            } else {
+                targetElement.innerHTML += fullText[i];
+                i++;
+            }
+        }, 40);
+    }
+
+    function finishTyping() {
+        clearInterval(typeInterval);
+        isTyping = false;
+    }
+
+    // 启动
+    nextStep();
+
+</script>
+</body>
+</html>
